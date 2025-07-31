@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Sensor Dashboard - Dados Reais</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .card-icon {
+            font-size: 1.5rem;
+            color: #667eea;
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .sensor-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sensor-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        .sensor-card:hover::before {
+            transform: translateX(100%);
+        }
+
+        .sensor-id {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .temp-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .humidity-value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+
+        .unit {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .alert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .alert-item.warning {
+            border-left-color: #ffa726;
+        }
+
+        .alert-item.info {
+            border-left-color: #42a5f5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: #5a6fd8;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .sensor-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> IoT Sensor Dashboard</h1>
+            <p><span class="status-indicator"></span>Dados Reais do Banco</p>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Carregando dados do banco...</p>
+        </div>
+
+        <div id="dashboard" style="display: none;">
+            <!-- Botão de atualização -->
+            <div style="text-align: center; margin-bottom: 20px;">
+                <button class="refresh-btn" onclick="loadData()">
+                    <i class="fas fa-sync-alt"></i> Atualizar Dados
+                </button>
+            </div>
+
+            <!-- Estatísticas Gerais -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalSensors">0</div>
+                    <div class="stat-label">Sensores Ativos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgTemp">0°C</div>
+                    <div class="stat-label">Temperatura Média</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgHumidity">0%</div>
+                    <div class="stat-label">Umidade Média</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalReadings">0</div>
+                    <div class="stat-label">Total de Leituras</div>
+                </div>
+            </div>
+
+            <!-- Sensores -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fas fa-thermometer-half"></i> Sensores em Tempo Real</div>
+                    <div class="card-icon"><i class="fas fa-wifi"></i></div>
+                </div>
+                <div class="sensor-grid" id="sensorGrid">
+                    <!-- Sensores serão inseridos aqui -->
+                </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fas fa-chart-area"></i> Histórico de Temperatura</div>
+                </div>
+                <canvas id="tempChart" width="400" height="200"></canvas>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fas fa-tint"></i> Histórico de Umidade</div>
+                </div>
+                <canvas id="humidityChart" width="400" height="200"></canvas>
+            </div>
+
+            <!-- Alertas -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fas fa-exclamation-triangle"></i> Alertas Recentes</div>
+                </div>
+                <div id="alertsList">
+                    <!-- Alertas serão inseridos aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração dos gráficos
+        const tempChart = new Chart(document.getElementById('tempChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Temperatura (°C)',
+                    data: [],
+                    borderColor: '#ff6b6b',
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+
+        const humidityChart = new Chart(document.getElementById('humidityChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Umidade (%)',
+                    data: [],
+                    borderColor: '#4ecdc4',
+                    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        max: 100
+                    }
+                }
+            }
+        });
+
+        // Carregar dados do banco
+        async function loadData() {
+            try {
+                // Carregar dados dos sensores
+                const sensorsResponse = await fetch('/api/sensors');
+                const sensors = await sensorsResponse.json();
+                
+                // Carregar estatísticas
+                const statsResponse = await fetch('/api/stats');
+                const stats = await statsResponse.json();
+                
+                updateDashboard(sensors, stats);
+                
+                // Esconder loading
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="spinner"></div>
+                    <p>Erro ao carregar dados. Verifique se o servidor está rodando.</p>
+                `;
+            }
+        }
+
+        // Atualizar dashboard
+        function updateDashboard(sensors, stats) {
+            // Atualizar sensores
+            updateSensorCards(sensors);
+            
+            // Atualizar estatísticas
+            updateStats(stats);
+            
+            // Atualizar gráficos
+            updateCharts(sensors);
+            
+            // Atualizar alertas
+            updateAlerts(stats.alerts);
+        }
+
+        // Atualizar cards dos sensores
+        function updateSensorCards(sensors) {
+            const sensorGrid = document.getElementById('sensorGrid');
+            sensorGrid.innerHTML = '';
+            
+            sensors.forEach(sensor => {
+                const sensorCard = document.createElement('div');
+                sensorCard.className = 'sensor-card';
+                
+                const location = getLocationName(sensor.sensor_id);
+                const lastUpdate = new Date(sensor.created_at).toLocaleTimeString();
+                
+                sensorCard.innerHTML = `
+                    <div class="sensor-id">${location}</div>
+                    <div class="temp-value">${sensor.temperature}<span class="unit">°C</span></div>
+                    <div class="humidity-value">${sensor.humidity}<span class="unit">%</span></div>
+                    <div style="font-size: 0.8rem; opacity: 0.8;">${sensor.sensor_id}</div>
+                    <div style="font-size: 0.7rem; opacity: 0.6;">Última atualização: ${lastUpdate}</div>
+                `;
+                
+                sensorGrid.appendChild(sensorCard);
+            });
+        }
+
+        // Mapear IDs dos sensores para nomes
+        function getLocationName(sensorId) {
+            const locations = {
+                'sensor-001': 'Sala Principal',
+                'sensor-002': 'Cozinha',
+                'sensor-003': 'Quarto',
+                'test-sensor-001': 'Sensor de Teste'
+            };
+            return locations[sensorId] || sensorId;
+        }
+
+        // Atualizar estatísticas
+        function updateStats(stats) {
+            document.getElementById('totalSensors').textContent = stats.stats.total_sensors || 0;
+            
+            // Converter para número e tratar valores nulos
+            const avgTemp = parseFloat(stats.stats.avg_temperature) || 0;
+            const avgHumidity = parseFloat(stats.stats.avg_humidity) || 0;
+            
+            document.getElementById('avgTemp').textContent = avgTemp.toFixed(1) + '°C';
+            document.getElementById('avgHumidity').textContent = avgHumidity.toFixed(1) + '%';
+            document.getElementById('totalReadings').textContent = stats.stats.total_readings || 0;
+        }
+
+        // Atualizar gráficos
+        function updateCharts(sensors) {
+            // Limpar dados antigos
+            tempChart.data.labels = [];
+            tempChart.data.datasets[0].data = [];
+            humidityChart.data.labels = [];
+            humidityChart.data.datasets[0].data = [];
+            
+            // Adicionar dados dos sensores
+            sensors.forEach(sensor => {
+                const time = new Date(sensor.created_at).toLocaleTimeString();
+                const location = getLocationName(sensor.sensor_id);
+                
+                tempChart.data.labels.push(`${location} (${time})`);
+                tempChart.data.datasets[0].data.push(parseFloat(sensor.temperature));
+                
+                humidityChart.data.labels.push(`${location} (${time})`);
+                humidityChart.data.datasets[0].data.push(parseFloat(sensor.humidity));
+            });
+            
+            tempChart.update();
+            humidityChart.update();
+        }
+
+        // Atualizar alertas
+        function updateAlerts(alerts) {
+            const alertsList = document.getElementById('alertsList');
+            alertsList.innerHTML = '';
+            
+            if (alerts.length === 0) {
+                alertsList.innerHTML = '<p style="text-align: center; color: #666;">Nenhum alerta recente</p>';
+                return;
+            }
+            
+            alerts.forEach(alert => {
+                const alertItem = document.createElement('div');
+                alertItem.className = 'alert-item';
+                
+                let alertMessage = '';
+                let alertClass = '';
+                
+                if (alert.temperature > 30) {
+                    alertMessage = `Temperatura alta: ${alert.temperature}°C`;
+                    alertClass = 'warning';
+                } else if (alert.temperature < 15) {
+                    alertMessage = `Temperatura baixa: ${alert.temperature}°C`;
+                    alertClass = 'info';
+                } else if (alert.humidity > 80) {
+                    alertMessage = `Umidade alta: ${alert.humidity}%`;
+                    alertClass = 'warning';
+                } else if (alert.humidity < 30) {
+                    alertMessage = `Umidade baixa: ${alert.humidity}%`;
+                    alertClass = 'info';
+                }
+                
+                if (alertMessage) {
+                    alertItem.className = `alert-item ${alertClass}`;
+                    alertItem.innerHTML = `
+                        <div>
+                            <i class="fas fa-exclamation-circle"></i>
+                            ${alertMessage} (${alert.sensor_id})
+                        </div>
+                        <div style="font-size: 0.8rem; opacity: 0.7;">
+                            ${new Date(alert.created_at).toLocaleString()}
+                        </div>
+                    `;
+                    
+                    alertsList.appendChild(alertItem);
+                }
+            });
+        }
+
+        // Carregar dados iniciais
+        loadData();
+        
+        // Atualizar dados a cada 10 segundos
+        setInterval(loadData, 10000);
+    </script>
+</body>
+</html> 

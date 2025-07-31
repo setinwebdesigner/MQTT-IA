@@ -1,0 +1,158 @@
+{
+  "name": "Processamento MQTT",
+  "nodes": [
+    {
+      "parameters": {
+        "topics": "sensor/data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mqttTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "04667972-2aed-41d8-954e-63b851c65490",
+      "name": "MQTT Trigger",
+      "credentials": {
+        "mqtt": {
+          "id": "qwtXt0309TYS7RpM",
+          "name": "MQTT account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  // Parse o campo message de string para JSON\n  const parsedMessage = JSON.parse(item.json.message);\n  \n  // Adiciona os campos processados\n  const processedData = {\n    ...parsedMessage,\n    processed: true,\n    processedAt: new Date().toISOString(),\n    originalTopic: item.json.topic || 'sensor/data'\n  };\n  \n  return {\n    json: processedData\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        0
+      ],
+      "id": "5cc0fd79-bae1-4d25-978f-aead2e36a25f",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "topic": "processed/data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mqtt",
+      "typeVersion": 1,
+      "position": [
+        480,
+        0
+      ],
+      "id": "33cc6685-7402-4aee-916d-f5b5081902f0",
+      "name": "MQTT",
+      "credentials": {
+        "mqtt": {
+          "id": "qwtXt0309TYS7RpM",
+          "name": "MQTT account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "table": {
+          "__rl": true,
+          "value": "readings",
+          "mode": "list",
+          "cachedResultName": "readings"
+        },
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "sensor_id",
+              "value": "={{ $json.sensorId }}"
+            },
+            {
+              "column": "temperature",
+              "value": "={{ $json.temperature }}"
+            },
+            {
+              "column": "humidity",
+              "value": "={{ $json.humidity }}"
+            },
+            {
+              "column": "timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "column": "processed_at",
+              "value": "={{ $json.processedAt }}"
+            },
+            {
+              "column": "original_topic",
+              "value": "={{ $json.originalTopic }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        480,
+        144
+      ],
+      "id": "8bcfdd35-932e-4fd5-a0d9-12b6cf28f78e",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "mySql": {
+          "id": "gh00krPrt9dywI6V",
+          "name": "MySQL account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "MQTT Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "MQTT",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MQTT": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bc6a1efc-1b6b-4f1a-b84e-9099161b25b4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "592c7dad549197dedc6a3283e27143d772be0a00b977a7ed09dd49c58b874ca2"
+  },
+  "id": "E8DNx7Jrpj0xYpCN",
+  "tags": []
+}
